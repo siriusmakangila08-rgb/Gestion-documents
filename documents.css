@@ -523,23 +523,56 @@ html, body {
 }
 
 /* ---- Contenu ---- */
-.paper p { margin: 8px 0; text-align: justify; }
-.paper h4 { font: bold 11.5pt "Times New Roman", Georgia, serif; margin: 14px 0 5px; }
-.paper ul, .paper ol { margin: 5px 0 9px; padding-left: 22px; }
+.paper p {
+  margin: 8px 0;
+  text-align: justify;
+  orphans: 3;           /* min 3 lignes avant saut de page */
+  widows: 3;            /* min 3 lignes après saut de page */
+}
+.paper h4 {
+  font: bold 11.5pt "Times New Roman", Georgia, serif;
+  margin: 14px 0 5px;
+  break-after: avoid;   /* h4 reste avec le paragraphe suivant */
+  page-break-after: avoid;
+}
+.paper ul, .paper ol { margin: 5px 0 9px; padding-left: 22px; break-inside: avoid; page-break-inside: avoid; }
 .paper li { margin: 3px 0; }
+
 
 /* ---- Sections ---- */
 .doc-section {
   border-bottom: 1px solid #d0d0d0;
   padding: 0 0 8px;
   margin: 11px 0;
+  break-inside: avoid;          /* empêche la coupure dans le PDF */
+  page-break-inside: avoid;     /* fallback */
 }
-.doc-section-title { font-weight: bold; margin-bottom: 5px; }
+.doc-section-title {
+  font-weight: bold;
+  margin-bottom: 5px;
+  break-after: avoid;           /* le titre reste collé au contenu */
+  page-break-after: avoid;
+}
 
-.doc-meta { display: flex; justify-content: space-between; gap: 14px; margin: 10px 0; font-size: 10.5pt; }
+.doc-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 10px 0;
+  font-size: 10.5pt;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
 
-.space-block { border-bottom: 1px solid #ddd; padding: 8px 0; margin: 5px 0; }
+.space-block {
+  border-bottom: 1px solid #ddd;
+  padding: 8px 0;
+  margin: 5px 0;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
 .space-title { font-weight: bold; margin-bottom: 3px; }
+
 
 /* ---- Signatures ---- */
 .signature-grid {

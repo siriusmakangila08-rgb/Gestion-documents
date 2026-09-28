@@ -124,33 +124,63 @@ function handleLogoUpload(e){
  reader.readAsDataURL(file);
 }
 async function exportPdf(){
- if(!window.html2canvas || !window.jspdf || typeof window.jspdf.jsPDF !== 'function'){showToast('La bibliothèque PDF n’est pas disponible. Vérifiez la connexion, puis utilisez Imprimer.');return}
- const button=$('#exportPdf');button.disabled=true;button.textContent='Préparation du PDF…';
- let clone, holder;
+ if(!window.html2canvas||!window.jspdf||typeof window.jspdf.jsPDF!=='function'){showToast('La biblioth\u00e8que PDF n\u2019est pas disponible. Utilisez le bouton Imprimer.');return}
+ const button=$('#exportPdf');button.disabled=true;button.innerHTML='<span>\u23f3</span> G\u00e9n\u00e9ration\u2026';
+ let clone,holder;
  try{
   await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
-  const paper=$('#paper'), pdfFooter=paper.querySelector('.paper-footer');if(pdfFooter)pdfFooter.remove();
+  const paper=$('#paper');
+  const pdfFooter=paper.querySelector('.paper-footer');if(pdfFooter)pdfFooter.remove();
   clone=paper.cloneNode(true);if(pdfFooter)paper.appendChild(pdfFooter);
-  clone.id='pdfCapture';clone.classList.add('pdf-capture');clone.style.cssText='position:relative;width:170mm;min-height:0;height:auto;padding:0;margin:0;box-shadow:none;overflow:visible;background:#fff;color:#111;font-family:"Times New Roman",Georgia,serif;';
-  holder=document.createElement('div');holder.style.cssText='position:fixed;left:-10000px;top:0;width:170mm;background:#fff;z-index:-1;';holder.appendChild(clone);document.body.appendChild(holder);
-  clone.querySelectorAll('.empty-value').forEach(node=>node.remove());
-  const canvas=await window.html2canvas(clone,{scale:3,backgroundColor:'#ffffff',useCORS:true,logging:false,windowWidth:Math.max(document.documentElement.clientWidth,1000)});
+  clone.id='pdfCapture';
+  clone.style.cssText='position:relative;width:170mm;min-height:0;height:auto;padding:0;margin:0;box-shadow:none;overflow:visible;background:#fff;color:#111;font-family:"Times New Roman",Georgia,serif;';
+  holder=document.createElement('div');
+  holder.style.cssText='position:fixed;left:-9999px;top:0;width:170mm;background:#fff;z-index:-1;';
+  holder.appendChild(clone);document.body.appendChild(holder);
+  clone.querySelectorAll('.empty-value').forEach(n=>n.remove());
+  const canvas=await window.html2canvas(clone,{scale:2,backgroundColor:'#ffffff',useCORS:true,logging:false,windowWidth:642});
   const pdf=new window.jspdf.jsPDF({orientation:'portrait',unit:'mm',format:'a4',compress:true});
-  const maxPx=Math.floor(257*canvas.width/170),pages=Math.max(1,Math.ceil(canvas.height/maxPx));
-  for(let i=0;i<pages;i++){
-   if(i>0)pdf.addPage('a4','portrait');
-   const y=i*maxPx,h=Math.min(maxPx,canvas.height-y),slice=document.createElement('canvas');slice.width=canvas.width;slice.height=h;slice.getContext('2d').drawImage(canvas,0,y,canvas.width,h,0,0,canvas.width,h);
-   pdf.addImage(slice.toDataURL('image/png'),'PNG',20,20,170,h/(canvas.width/170));
-   pdf.setDrawColor(85,85,85);pdf.setLineWidth(0.25);pdf.line(20,278,190,278);
-   pdf.setFont('times','normal');pdf.setFontSize(9);
-   const contact=[common.address,common.phone,common.email].filter(Boolean).join(' • ')||'Adresse • Téléphone • Email';
-   pdf.text(contact.slice(0,130),20,283,{maxWidth:170});
-   pdf.text('Réf. : '+currentDoc.reference,20,289);
-   pdf.text('Page '+(i+1)+' / '+pages,190,289,{align:'right'});
+  /* Hauteur de contenu par page = 297 - 20 (marge haut) - 28 (marge bas + pied) = 249mm */
+  const pageHeightPx=Math.floor(249*canvas.width/170);
+  const totalPages=Math.max(1,Math.ceil(canvas.height/pageHeightPx));
+  /* Trouve la meilleure ligne de coupe : remonte depuis idealY pour trouver une ligne blanche */
+  function findBreakRow(idealY){
+   if(idealY>=canvas.height)return canvas.height;
+   const scanPx=Math.min(100,idealY);
+   const ctx2=canvas.getContext('2d');
+   const d=ctx2.getImageData(0,idealY-scanPx,canvas.width,scanPx+1).data;
+   let bestRow=idealY,bestScore=-1;
+   for(let r=scanPx;r>=0;r--){
+    let w=0;
+    for(let c=0;c<canvas.width;c++){const i=(r*canvas.width+c)*4;if(d[i]>=243&&d[i+1]>=243&&d[i+2]>=243)w++;}
+    const score=w/canvas.width;
+    if(score>bestScore){bestScore=score;bestRow=idealY-scanPx+r;}
+    if(score>=0.98)break;
+   }
+   return bestRow;
   }
-  const slug=String(currentDoc.reference||active).replace(/[^A-Za-z0-9_-]+/g,'_');pdf.save('NETUBEX_'+slug+'.pdf');showToast('Le PDF a été téléchargé.');
- }catch(error){console.error(error);showToast('L’export PDF a échoué. Essayez le bouton Imprimer.')}
- finally{if(holder)holder.remove();button.disabled=false;button.innerHTML='<span>↓</span> Exporter en PDF'}
+  let curY=0;
+  for(let i=0;i<totalPages;i++){
+   if(i>0)pdf.addPage('a4','portrait');
+   const idealEnd=curY+pageHeightPx;
+   const actualEnd=i===totalPages-1?canvas.height:findBreakRow(Math.min(idealEnd,canvas.height));
+   const h=actualEnd-curY;
+   const slice=document.createElement('canvas');slice.width=canvas.width;slice.height=h;
+   slice.getContext('2d').drawImage(canvas,0,curY,canvas.width,h,0,0,canvas.width,h);
+   const imgH=h/(canvas.width/170);
+   pdf.addImage(slice.toDataURL('image/jpeg',0.88),'JPEG',20,20,170,imgH);
+   pdf.setDrawColor(85,85,85);pdf.setLineWidth(0.25);pdf.line(20,274,190,274);
+   pdf.setFont('times','normal');pdf.setFontSize(9);
+   const contact=[common.address,common.phone,common.email].filter(Boolean).join(' \u2022 ')||'Adresse \u2022 T\u00e9l\u00e9phone \u2022 Email';
+   pdf.text(contact.slice(0,130),20,279,{maxWidth:170});
+   pdf.text('R\u00e9f. : '+currentDoc.reference,20,285);
+   pdf.text('Page '+(i+1)+' / '+totalPages,190,285,{align:'right'});
+   curY=actualEnd;
+  }
+  const slug=String(currentDoc.reference||active).replace(/[^A-Za-z0-9_-]+/g,'_');
+  pdf.save('NETUBEX_'+slug+'.pdf');showToast('Le PDF a \u00e9t\u00e9 t\u00e9l\u00e9charg\u00e9.');
+ }catch(error){console.error(error);showToast('L\u2019export PDF a \u00e9chou\u00e9. Essayez le bouton Imprimer.')}
+ finally{if(holder)holder.remove();button.disabled=false;button.innerHTML='<span>\u2193</span> Exporter en PDF'}
 }
 function setActive(type){
  if(type===active)return;active=type;currentDoc=loadDoc(active);
