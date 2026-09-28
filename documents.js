@@ -124,7 +124,7 @@ function handleLogoUpload(e){
  reader.readAsDataURL(file);
 }
 async function exportPdf(){
- if(!window.html2canvas||!window.jspdf||!window.jspdf.jsPDF){showToast('La bibliothèque PDF n’est pas disponible. Vérifiez la connexion, puis utilisez Imprimer.');return}
+ if(!window.html2canvas || !window.jspdf || typeof window.jspdf.jsPDF !== 'function'){showToast('La bibliothèque PDF n’est pas disponible. Vérifiez la connexion, puis utilisez Imprimer.');return}
  const button=$('#exportPdf');button.disabled=true;button.textContent='Préparation du PDF…';
  let clone, holder;
  try{
